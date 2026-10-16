@@ -257,6 +257,12 @@ def access_allowed() -> bool:
     """Optional deployment password; local development stays passwordless."""
     expected = os.environ.get("APP_PASSWORD", "")
     if not expected:
+        try:
+            expected = str(st.secrets.get("APP_PASSWORD", ""))
+        except Exception:
+            # st.secrets is unavailable outside a configured Streamlit deployment.
+            expected = ""
+    if not expected:
         return True
     entered = st.text_input("访问密码", type="password")
     if not entered:
