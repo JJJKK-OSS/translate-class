@@ -27,29 +27,52 @@ def recognize_timetable(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
     image = preprocess_image(data)
     result = None
     engine_name = ""
+    engine_errors: list[str] = []
     try:
         from paddleocr import PaddleOCR  # type: ignore
         ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
         result = ocr.ocr(np.asarray(image), cls=True)
         engine_name = "PaddleOCR"
     except ImportError:
-        # PaddleOCR is large and may not fit restricted hosted builders. RapidOCR
-        # is a compatible local fallback with bundled ONNX models.
+        pass
+    except Exception as exc:  # PaddleOCR has version-specific runtime errors.
+        engine_errors.append(f"PaddleOCR: {exc}")
+
+    if result is None:
         try:
             from rapidocr_onnxruntime import RapidOCR  # type: ignore
 
             ocr = RapidOCR()
             result, _ = ocr(np.asarray(image))
             engine_name = "RapidOCR"
+        except ImportError:
+            pass
+        except Exception as exc:
+            engine_errors.append(f"RapidOCR: {exc}")
+
+    if result is None:
+        try:
+            import pytesseract  # type: ignore
+
+            from pytesseract import Output  # type: ignore
+
+            data_by_field = pytesseract.image_to_data(
+                np.asarray(image), lang="chi_sim+eng", config="--psm 6", output_type=Output.DICT
+            )
+            result = [
+                (text, float(conf) / 100.0)
+                for text, conf in zip(data_by_field.get("text", []), data_by_field.get("conf", []))
+                if str(text).strip() and str(conf).strip() not in {"-1", ""}
+            ]
+            engine_name = "Tesseract"
         except ImportError as exc:
             raise RuntimeError(
-                "截图识别需要 OCR 依赖。请使用包含 rapidocr_onnxruntime 的部署依赖，"
+                "截图识别需要 OCR 依赖。当前部署应包含 pytesseract 和 packages.txt，"
                 "或改用 Excel/CSV 导入。"
             ) from exc
         except Exception as exc:
-            raise RuntimeError(f"RapidOCR 模型运行失败：{exc}") from exc
-    except Exception as exc:  # PaddleOCR has version-specific runtime errors.
-        raise RuntimeError(f"PaddleOCR 模型运行失败：{exc}") from exc
+            detail = "; ".join(engine_errors)
+            raise RuntimeError(f"Tesseract 模型运行失败：{exc}{('；' + detail) if detail else ''}") from exc
 
     rows: list[dict[str, Any]] = []
     if engine_name == "RapidOCR":
@@ -62,7 +85,7 @@ def recognize_timetable(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
                 continue
             if str(text).strip():
                 rows.append(_draft_row(str(text), confidence))
-    else:
+    elif engine_name == "PaddleOCR":
         for page in result or []:
             if not page:
                 continue
@@ -73,6 +96,9 @@ def recognize_timetable(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
                     continue
                 if str(text).strip():
                     rows.append(_draft_row(str(text), confidence))
+    else:
+        for text, confidence in result or []:
+            rows.append(_draft_row(str(text), confidence))
     warnings = []
     if not rows:
         warnings.append("没有识别到文字，请上传更清晰的截图或改用 Excel 导入。")

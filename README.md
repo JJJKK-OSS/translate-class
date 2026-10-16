@@ -19,7 +19,7 @@ streamlit run app.py --server.address 0.0.0.0
 
 如果电脑是 macOS，可用 `ipconfig getifaddr en0` 查找 Wi‑Fi 地址；Windows 可运行 `ipconfig`；Linux 可运行 `hostname -I`。不要在 iPad 上访问 `localhost:8501`，那会指向 iPad 自己。云端开发环境的地址也不能直接当作家庭局域网地址使用；需要在你自己的电脑上运行此程序。
 
-`requirements.txt` 已包含适合云端的 RapidOCR 截图识别依赖；本地如果需要 PaddleOCR 中文模型，也可额外安装 `requirements-ocr.txt`。如果只需要 Excel/CSV，可移除 `rapidocr_onnxruntime`。
+`requirements.txt` 已包含适合云端的 Tesseract OCR Python 接口，`packages.txt` 会为 Streamlit Cloud 安装中文语言模型；本地如果需要 PaddleOCR 中文模型，也可额外安装 `requirements-ocr.txt`。
 
 ## 使用流程
 

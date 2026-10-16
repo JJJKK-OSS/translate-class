@@ -6,6 +6,5 @@ Pillow>=10,<12
 opencv-python-headless>=4.8,<5
 icalendar>=6.0,<7
 python-dateutil>=2.8,<3
-# Lightweight OCR for hosted deployments; bundled ONNX models avoid the
-# large PaddlePaddle build that often exceeds free Streamlit limits.
-rapidocr_onnxruntime==1.4.4
+# Tesseract uses the cloud platform's apt language model (packages.txt).
+pytesseract==0.3.13
