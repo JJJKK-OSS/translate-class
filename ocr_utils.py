@@ -24,55 +24,78 @@ def preprocess_image(data: bytes, scale: int = 2) -> Image.Image:
 
 def recognize_timetable(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
     """Return draft rows and warnings; never claims the OCR is final."""
+    image = preprocess_image(data)
+    result = None
+    engine_name = ""
     try:
         from paddleocr import PaddleOCR  # type: ignore
-    except ImportError as exc:
-        raise RuntimeError(
-            "截图识别需要 PaddleOCR。请先执行 `pip install -r requirements-ocr.txt`，"
-            "或改用 Excel/CSV 导入。"
-        ) from exc
-
-    image = preprocess_image(data)
-    try:
         ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
         result = ocr.ocr(np.asarray(image), cls=True)
+        engine_name = "PaddleOCR"
+    except ImportError:
+        # PaddleOCR is large and may not fit restricted hosted builders. RapidOCR
+        # is a compatible local fallback with bundled ONNX models.
+        try:
+            from rapidocr_onnxruntime import RapidOCR  # type: ignore
+
+            ocr = RapidOCR()
+            result, _ = ocr(np.asarray(image))
+            engine_name = "RapidOCR"
+        except ImportError as exc:
+            raise RuntimeError(
+                "截图识别需要 OCR 依赖。请使用包含 rapidocr_onnxruntime 的部署依赖，"
+                "或改用 Excel/CSV 导入。"
+            ) from exc
+        except Exception as exc:
+            raise RuntimeError(f"RapidOCR 模型运行失败：{exc}") from exc
     except Exception as exc:  # PaddleOCR has version-specific runtime errors.
-        raise RuntimeError(f"OCR 模型运行失败：{exc}") from exc
+        raise RuntimeError(f"PaddleOCR 模型运行失败：{exc}") from exc
 
     rows: list[dict[str, Any]] = []
-    for page in result or []:
-        if not page:
-            continue
-        for item in page:
+    if engine_name == "RapidOCR":
+        # RapidOCR returns [box, text, score] entries in a single page.
+        items = result or []
+        for item in items:
             try:
-                text, confidence = item[1][0], float(item[1][1])
+                text, confidence = item[1], float(item[2])
             except (IndexError, TypeError, ValueError):
                 continue
-            text = str(text).strip()
-            if not text:
+            if str(text).strip():
+                rows.append(_draft_row(str(text), confidence))
+    else:
+        for page in result or []:
+            if not page:
                 continue
-            rows.append(
-                {
-                    "course_name": text,
-                    "weekday": "",
-                    "start_period": "",
-                    "end_period": "",
-                    "teacher": "",
-                    "classroom": "",
-                    "weeks": "",
-                    "parity": "",
-                    "cancelled": "",
-                    "makeup": "",
-                    "note": "OCR 初步识别，请人工确认",
-                    "ocr_confidence": confidence,
-                }
-            )
+            for item in page:
+                try:
+                    text, confidence = item[1][0], float(item[1][1])
+                except (IndexError, TypeError, ValueError):
+                    continue
+                if str(text).strip():
+                    rows.append(_draft_row(str(text), confidence))
     warnings = []
     if not rows:
         warnings.append("没有识别到文字，请上传更清晰的截图或改用 Excel 导入。")
     low_count = sum(1 for row in rows if row["ocr_confidence"] < 0.85)
     if low_count:
         warnings.append(f"有 {low_count} 项 OCR 置信度低于 85%，已标记为待确认。")
-    warnings.append("OCR 结果仅作初步识别，必须在确认页面补全并核对课程字段。")
+    warnings.append(f"{engine_name} 结果仅作初步识别，必须在确认页面补全并核对课程字段。")
     return rows, warnings
+
+
+def _draft_row(text: str, confidence: float) -> dict[str, Any]:
+    return {
+        "course_name": text.strip(),
+        "weekday": "",
+        "start_period": "",
+        "end_period": "",
+        "teacher": "",
+        "classroom": "",
+        "weeks": "",
+        "parity": "",
+        "cancelled": "",
+        "makeup": "",
+        "note": "OCR 初步识别，请人工确认",
+        "ocr_confidence": confidence,
+    }
 

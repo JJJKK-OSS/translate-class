@@ -8,12 +8,12 @@
 
 1. 将项目推送到 GitHub 后，在 Streamlit Community Cloud 创建应用。
 2. 选择仓库、分支和入口文件 `app.py`。
-3. 使用仓库内的 `requirements.txt`，它现在包含完整截图 OCR 依赖；OCR 依赖较大，首次构建可能需要几分钟。
+3. 使用仓库内的 `requirements.txt`，它包含适合免费云构建的 RapidOCR 截图识别依赖；首次构建可能需要几分钟。
 4. 在应用 Secrets/Environment variables 中设置可选的 `APP_PASSWORD`，启用访问密码保护。
 
 ## Docker 平台
 
-仓库内的 `Dockerfile` 默认通过 `requirements-public.txt` 安装 OCR 依赖并监听 `0.0.0.0:8501`：
+仓库内的 `Dockerfile` 默认通过 `requirements-public.txt` 安装 RapidOCR 依赖并监听 `0.0.0.0:8501`：
 
 ```bash
 docker build -t timetable-calendar .
