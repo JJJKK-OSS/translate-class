@@ -19,7 +19,7 @@ streamlit run app.py --server.address 0.0.0.0
 
 如果电脑是 macOS，可用 `ipconfig getifaddr en0` 查找 Wi‑Fi 地址；Windows 可运行 `ipconfig`；Linux 可运行 `hostname -I`。不要在 iPad 上访问 `localhost:8501`，那会指向 iPad 自己。云端开发环境的地址也不能直接当作家庭局域网地址使用；需要在你自己的电脑上运行此程序。
 
-选择截图 OCR 时，再安装 `requirements-ocr.txt`；Excel/CSV 转换不需要 PaddleOCR。
+`requirements.txt` 已包含截图 OCR 所需的 PaddleOCR；如果只需要 Excel/CSV，可改用不含 OCR 的基础依赖并移除最后两行 OCR 依赖。
 
 ## 使用流程
 

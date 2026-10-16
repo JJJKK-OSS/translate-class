@@ -1,4 +1,3 @@
--r requirements.txt
 # PaddleOCR is loaded only when screenshot OCR is selected. These versions
 # provide Python 3.12 wheels and retain the OCR API used by ocr_utils.py.
 paddleocr==2.10.0
